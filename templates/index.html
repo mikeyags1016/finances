@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spendboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="page">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PERSONAL FINANCES</p>
+          <h1>Cash flow overview</h1>
+          <p class="subheading">Incoming and outgoing transactions, shown separately.</p>
+        </div>
+        <div class="totals">
+          <div class="total-card">
+            <span>Total spending</span>
+            <strong>${{ "%.2f"|format(total_spending) }}</strong>
+          </div>
+          <div class="total-card income-total">
+            <span>Total income</span>
+            <strong>${{ "%.2f"|format(total_income) }}</strong>
+          </div>
+        </div>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="messages" aria-live="polite">
+            {% for category, message in messages %}
+              <p class="message {{ category }}">{{ message }}</p>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+
+      <section class="dashboard-grid dashboard-overview">
+        <article class="card chart-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">OUTGOING CASH</p>
+              <h2>Spending by bucket</h2>
+            </div>
+          </div>
+          {% if spending_segments %}
+            <div class="chart-layout">
+              <svg class="pie-chart" viewBox="0 0 200 200" role="group" aria-label="Spending by category. Select a slice to filter transactions.">
+                {% for segment in spending_segments %}
+                  <path
+                    class="pie-slice"
+                    d="{{ segment.path }}"
+                    fill="{{ segment.color }}"
+                    tabindex="0"
+                    role="button"
+                    data-flow-type="spending"
+                    data-bucket="{{ segment.bucket }}"
+                    aria-label="Filter transactions to spending in {{ segment.bucket }}"
+                  ><title>{{ segment.bucket }}: ${{ "%.2f"|format(segment.total) }}</title></path>
+                {% endfor %}
+              </svg>
+              <ul class="legend">
+                {% for segment in spending_segments %}
+                  <li>
+                    <button class="legend-filter" type="button" data-flow-type="spending" data-bucket="{{ segment.bucket }}" aria-label="Filter spending transactions to {{ segment.bucket }}">
+                      <span class="legend-name"><i style="background: {{ segment.color }}"></i>{{ segment.bucket }}</span>
+                      <span class="legend-value">${{ "%.2f"|format(segment.total) }} <small>{{ "%.0f"|format(segment.percent) }}%</small></span>
+                    </button>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <span class="empty-icon">◒</span>
+              <p>No spending recorded</p>
+              <span>Outgoing transactions will appear here.</span>
+            </div>
+          {% endif %}
+        </article>
+        <article class="card chart-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">INCOMING CASH</p>
+              <h2>Income by bucket</h2>
+            </div>
+          </div>
+          {% if income_segments %}
+            <div class="chart-layout">
+              <svg class="pie-chart income-chart" viewBox="0 0 200 200" role="group" aria-label="Income by category. Select a slice to filter transactions.">
+                {% for segment in income_segments %}
+                  <path
+                    class="pie-slice"
+                    d="{{ segment.path }}"
+                    fill="{{ segment.color }}"
+                    tabindex="0"
+                    role="button"
+                    data-flow-type="income"
+                    data-bucket="{{ segment.bucket }}"
+                    aria-label="Filter transactions to income in {{ segment.bucket }}"
+                  ><title>{{ segment.bucket }}: ${{ "%.2f"|format(segment.total) }}</title></path>
+                {% endfor %}
+              </svg>
+              <ul class="legend">
+                {% for segment in income_segments %}
+                  <li>
+                    <button class="legend-filter" type="button" data-flow-type="income" data-bucket="{{ segment.bucket }}" aria-label="Filter income transactions to {{ segment.bucket }}">
+                      <span class="legend-name"><i style="background: {{ segment.color }}"></i>{{ segment.bucket }}</span>
+                      <span class="legend-value">${{ "%.2f"|format(segment.total) }} <small>{{ "%.0f"|format(segment.percent) }}%</small></span>
+                    </button>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <span class="empty-icon">◒</span>
+              <p>No income recorded</p>
+              <span>Incoming transactions will appear here.</span>
+            </div>
+          {% endif %}
+        </article>
+      </section>
+
+      <section class="card transactions-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">LATEST ACTIVITY</p>
+            <h2>Transactions</h2>
+          </div>
+          <div class="transaction-controls">
+            <span class="count" id="transaction-count" aria-live="polite">{{ transactions|length }} shown</span>
+            <button class="clear-filter" id="clear-filter" type="button" hidden>Show all transactions</button>
+          </div>
+        </div>
+        {% if transactions %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Description</th><th>Account</th><th>Type</th><th>Bucket</th><th class="amount">Amount</th></tr>
+              </thead>
+              <tbody>
+                {% for transaction in transactions %}
+                  <tr data-flow-type="{{ transaction.flow_type }}" data-bucket="{{ transaction.bucket }}">
+                    <td>{{ transaction.transaction_date }}</td>
+                    <td class="description">{{ transaction.description }}</td>
+                    <td>{{ transaction.source }} · {{ transaction.account_label }}</td>
+                    <td>{{ "Income" if transaction.flow_type == "income" else "Spending" }}</td>
+                    <td>
+                      {% set bucket_color = category_colors.get(transaction.bucket, category_colors['Other']) %}
+                      <span class="bucket" style="--bucket-color: {{ bucket_color }}" aria-label="Bucket: {{ transaction.bucket }}">
+                        <i aria-hidden="true"></i>{{ transaction.bucket }}
+                      </span>
+                    </td>
+                    <td class="amount">${{ "%.2f"|format(transaction.amount) }}</td>
+                  </tr>
+                {% endfor %}
+                <tr id="no-filter-results" hidden>
+                  <td colspan="6" class="table-empty">No recent transactions match this category.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="table-empty">No transactions yet. Start the CSV watcher and save exports to <code>{{ import_inbox }}</code>.</p>
+        {% endif %}
+      </section>
+      <footer>Local dashboard · Categorization rules can be customized in <code>app.py</code></footer>
+    </main>
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  </body>
+</html>
