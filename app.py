@@ -6,7 +6,7 @@ import os
 import re
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from flask import Flask, flash, redirect, render_template, request, url_for
@@ -232,6 +232,110 @@ def expense_rows(file_bytes):
     return results
 
 
+def format_money(value):
+    sign = "-" if value < 0 else ""
+    return f"{sign}${abs(value):,.2f}"
+
+
+def format_axis_money(value):
+    rounded = round(value)
+    sign = "-" if rounded < 0 else ""
+    return f"{sign}${abs(rounded):,}"
+
+
+def estimated_net_worth_chart(connection, today=None):
+    today = today or date.today()
+    start = date(today.year, 1, 1)
+    rows = connection.execute(
+        """
+        SELECT transaction_date,
+               SUM(CASE WHEN flow_type = 'income' THEN amount ELSE -amount END) AS net
+        FROM transactions
+        WHERE transaction_date >= ? AND transaction_date <= ?
+        GROUP BY transaction_date
+        ORDER BY transaction_date
+        """,
+        (start.isoformat(), today.isoformat()),
+    ).fetchall()
+    by_date = {row["transaction_date"]: row["net"] for row in rows}
+
+    points = []
+    cumulative = 0.0
+    current = start
+    while current <= today:
+        cumulative += by_date.get(current.isoformat(), 0.0)
+        points.append({"date": current, "value": cumulative})
+        current += timedelta(days=1)
+
+    values = [point["value"] for point in points]
+    low = min(values)
+    high = max(values)
+    if math.isclose(low, high):
+        padding = max(abs(low) * 0.1, 1.0)
+        low -= padding
+        high += padding
+    else:
+        span = high - low
+        low -= span * 0.08
+        high += span * 0.08
+
+    width = 960
+    height = 280
+    left, right, top, bottom = 72, 16, 16, 36
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    last_index = len(points) - 1
+
+    def x_at(index):
+        if last_index == 0:
+            return left + plot_width / 2
+        return left + plot_width * index / last_index
+
+    def y_at(value):
+        return top + plot_height * (1 - (value - low) / (high - low))
+
+    y_ticks = []
+    for step in range(5):
+        value = low + (high - low) * step / 4
+        y_ticks.append({"y": f"{y_at(value):.2f}", "label": format_axis_money(value)})
+
+    x_ticks = []
+    previous_x = None
+    for index, point in enumerate(points):
+        is_month_start = point["date"].day == 1
+        is_last_day = index == last_index
+        if not is_month_start and not is_last_day:
+            continue
+        x = x_at(index)
+        if previous_x is not None and x - previous_x < plot_width * 0.08:
+            continue
+        label = point["date"].strftime("%b")
+        if is_last_day and not is_month_start:
+            label = f"{label} {point['date'].day}"
+        x_ticks.append({"x": f"{x:.2f}", "label": label})
+        previous_x = x
+
+    zero_y = f"{y_at(0):.2f}" if low < 0 < high else None
+    return {
+        "line": " ".join(
+            f"{x_at(index):.2f},{y_at(point['value']):.2f}"
+            for index, point in enumerate(points)
+        ),
+        "y_ticks": y_ticks,
+        "x_ticks": x_ticks,
+        "zero_y": zero_y,
+        "width": width,
+        "height": height,
+        "plot_left": left,
+        "plot_right": width - right,
+        "label_y": height - 10,
+        "latest": points[-1]["value"],
+        "latest_label": format_money(points[-1]["value"]),
+        "start_label": start.strftime("%b %d, %Y").replace(" 0", " "),
+        "end_label": today.strftime("%b %d, %Y").replace(" 0", " "),
+    }
+
+
 def save_transactions(source, account_label, rows):
     inserted = 0
     with get_db() as connection:
@@ -287,6 +391,7 @@ def dashboard():
             LIMIT 100
             """
         ).fetchall()
+        net_worth = estimated_net_worth_chart(connection)
 
     spending_totals = [row for row in totals if row["flow_type"] == "spending"]
     income_totals = [row for row in totals if row["flow_type"] == "income"]
@@ -336,6 +441,7 @@ def dashboard():
         transactions=transactions,
         total_spending=total_spending,
         total_income=total_income,
+        net_worth=net_worth,
         category_colors=CATEGORY_COLORS,
         import_inbox=IMPORT_INBOX.relative_to(BASE_DIR).as_posix(),
     )

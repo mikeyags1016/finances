@@ -1,6 +1,7 @@
 import tempfile
 import hashlib
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -78,6 +79,49 @@ class ProcessCsvTests(unittest.TestCase):
         self.assertIn(b'data-bucket="Daily Living"', response.data)
         self.assertIn(b"Show all transactions", response.data)
         self.assertIn(b"/static/app.js", response.data)
+        self.assertLess(response.data.index(b"Estimated net worth"), response.data.index(b"Spending by bucket"))
+        self.assertIn(b'class="net-worth-line"', response.data)
+
+    def test_estimated_net_worth_runs_from_january_through_today(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.object(app, "DATABASE", Path(temporary_directory) / "expenses.sqlite3"):
+                app.initialize_db()
+                app.save_transactions(
+                    "Chase",
+                    "Checking",
+                    [
+                        {
+                            "date": "2025-12-31",
+                            "description": "Prior year payroll",
+                            "amount": 500.0,
+                            "bucket": "Income",
+                            "flow_type": "income",
+                        },
+                        {
+                            "date": "2026-01-15",
+                            "description": "Coffee shop",
+                            "amount": 40.0,
+                            "bucket": "Daily Living",
+                            "flow_type": "spending",
+                        },
+                        {
+                            "date": "2026-03-02",
+                            "description": "Payroll",
+                            "amount": 100.0,
+                            "bucket": "Income",
+                            "flow_type": "income",
+                        },
+                    ],
+                )
+                with app.get_db() as connection:
+                    chart = app.estimated_net_worth_chart(connection, today=date(2026, 3, 4))
+
+        self.assertEqual(chart["latest"], 60.0)
+        self.assertEqual(chart["latest_label"], "$60.00")
+        self.assertEqual(chart["start_label"], "Jan 1, 2026")
+        self.assertEqual(chart["end_label"], "Mar 4, 2026")
+        self.assertIn("Jan", [tick["label"] for tick in chart["x_ticks"]])
+        self.assertTrue(chart["line"].startswith("72.00,"))
 
     def test_categorizes_transactions_into_requested_buckets(self):
         examples = {

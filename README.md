@@ -37,3 +37,10 @@ An account label (such as `Travel card`) is stored with each transaction to keep
 Transactions are categorized into Income, Savings, Home, Transportation, Daily Living, Subscriptions, Loans/Debts, or Vacation/Flights using merchant and description keywords in `CATEGORY_RULES` in `app.py`. Unrecognized spending goes into `Other`. Existing transactions are recategorized automatically when the app starts, so edits to these rules update the dashboard without needing to re-import CSVs.
 
 This is a local development template, not a production-hardened financial application. Before exposing it to a network, add authentication, CSRF protection, secure secret management, and a deployment configuration.
+
+## TODO:
+
+-[ ] Add in a visual graph showing my networth of my liquid assets
+-[ ] Have clearer distinction between salary, bonuses/stipends, and other accounts
+-[ ] Have more nuanced bucketing of expenses
+    -[ ] 

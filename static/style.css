@@ -34,6 +34,14 @@ h2 { margin-bottom: 0; font-size: 19px; }
 .total-card strong { font-size: 24px; }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-bottom: 20px; }
+.net-worth-card { margin-bottom: 20px; padding: 25px 25px 12px; }
+.net-worth-current { font-size: 24px; letter-spacing: -0.03em; }
+.chart-note { margin: -12px 0 8px; color: #818397; font-size: 13px; }
+.net-worth-chart { display: block; width: 100%; height: auto; }
+.net-worth-grid { stroke: #f0eff5; stroke-width: 1; }
+.net-worth-zero { stroke: #d9d8e3; stroke-dasharray: 4 4; stroke-width: 1; }
+.net-worth-line { fill: none; stroke: #2f6fed; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.net-worth-label { fill: #a0a0af; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; }
 .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .card { border: 1px solid #eeedf5; border-radius: 16px; background: #fff; box-shadow: 0 5px 20px rgb(34 33 67 / 3%); }
 .chart-card, .transactions-card { padding: 25px; }
@@ -98,9 +106,10 @@ code { color: #74718b; }
 }
 
 @media (max-width: 480px) {
-  .topbar { align-items: flex-start; flex-direction: column; }
+  .topbar, .net-worth-card .section-heading { align-items: flex-start; flex-direction: column; }
+  .net-worth-card .section-heading { gap: 8px; }
   .totals, .total-card { width: 100%; }
-  .chart-card, .transactions-card { padding: 19px; }
+  .chart-card, .transactions-card, .net-worth-card { padding: 19px; }
   .chart-layout { flex-direction: column; }
   .legend { width: 100%; }
 }
