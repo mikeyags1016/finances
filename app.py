@@ -315,12 +315,16 @@ def estimated_net_worth_chart(connection, today=None):
         x_ticks.append({"x": f"{x:.2f}", "label": label})
         previous_x = x
 
-    zero_y = f"{y_at(0):.2f}" if low < 0 < high else None
+    zero_y = f"{y_at(0):.2f}" if low <= 0 <= high else None
+    latest_x = x_at(last_index)
+    latest_y = y_at(points[-1]["value"])
     return {
         "line": " ".join(
             f"{x_at(index):.2f},{y_at(point['value']):.2f}"
             for index, point in enumerate(points)
         ),
+        "latest_point_x": f"{latest_x:.2f}",
+        "latest_point_y": f"{latest_y:.2f}",
         "y_ticks": y_ticks,
         "x_ticks": x_ticks,
         "zero_y": zero_y,

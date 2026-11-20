@@ -39,8 +39,21 @@ Transactions are categorized into Income, Savings, Home, Transportation, Daily L
 This is a local development template, not a production-hardened financial application. Before exposing it to a network, add authentication, CSRF protection, secure secret management, and a deployment configuration.
 
 ## TODO:
-
--[ ] Add in a visual graph showing my networth of my liquid assets
--[ ] Have clearer distinction between salary, bonuses/stipends, and other accounts
--[ ] Have more nuanced bucketing of expenses
-    -[ ] 
+- [x] Add in a visual graph showing my networth of my liquid assets
+    - [ ] Have it take into account investments as well
+- [ ] Have clearer distinction between salary, bonuses/stipends, and other accounts
+- [ ] Have more nuanced bucketing of expenses
+    - [ ] Savings expenses should be categorized based on investment account, HYSA, or normal saving account
+    - [ ] Transfer to savings found in "other" category
+    - [ ] Car insurance should be own category, same with student loans
+    - [ ] Will wrap in BoA and Discover spending soon
+- [ ] Create tab for viewing investment portfolio from Fidelity
+    - [ ] Be able to see 401k, HSA, and Roth IRA
+    - [ ] Show break down of portfolios
+    - [ ] Calculate projected growth vs actual growth of portfilios based on graphs
+- [ ] Create tab for student loan forgiveness chart (see current spreadsheet for details)
+    - [ ] All loans laid out with calculations for each month
+    - [ ] Estimated end date of payment
+    - [ ] Celebration when debts are paid
+- [ ] Budgeting tab
+    - [ ] Set budgets for each bucket and investment goals

@@ -46,6 +46,8 @@
         </div>
         <p class="chart-note">Running total of income minus spending since January 1. The year starts at $0.00.</p>
         <svg class="net-worth-chart" viewBox="0 0 {{ net_worth.width }} {{ net_worth.height }}" role="img" aria-label="Estimated net worth from {{ net_worth.start_label }} to {{ net_worth.end_label }}, currently {{ net_worth.latest_label }}.">
+          <title>Estimated net worth: {{ net_worth.latest_label }}</title>
+          <desc>Running income minus spending, from {{ net_worth.start_label }} through {{ net_worth.end_label }}.</desc>
           {% for tick in net_worth.y_ticks %}
             <line class="net-worth-grid" x1="{{ net_worth.plot_left }}" y1="{{ tick.y }}" x2="{{ net_worth.plot_right }}" y2="{{ tick.y }}"></line>
             <text class="net-worth-label" x="{{ net_worth.plot_left - 10 }}" y="{{ tick.y }}" dy="4" text-anchor="end">{{ tick.label }}</text>
@@ -54,6 +56,9 @@
             <line class="net-worth-zero" x1="{{ net_worth.plot_left }}" y1="{{ net_worth.zero_y }}" x2="{{ net_worth.plot_right }}" y2="{{ net_worth.zero_y }}"></line>
           {% endif %}
           <polyline class="net-worth-line" points="{{ net_worth.line }}"></polyline>
+          {% if net_worth.latest_point_x %}
+            <circle class="net-worth-point" cx="{{ net_worth.latest_point_x }}" cy="{{ net_worth.latest_point_y }}" r="4"></circle>
+          {% endif %}
           {% for tick in net_worth.x_ticks %}
             <text class="net-worth-label" x="{{ tick.x }}" y="{{ net_worth.label_y }}" text-anchor="middle">{{ tick.label }}</text>
           {% endfor %}

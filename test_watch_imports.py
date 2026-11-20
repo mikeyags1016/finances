@@ -81,6 +81,7 @@ class ProcessCsvTests(unittest.TestCase):
         self.assertIn(b"/static/app.js", response.data)
         self.assertLess(response.data.index(b"Estimated net worth"), response.data.index(b"Spending by bucket"))
         self.assertIn(b'class="net-worth-line"', response.data)
+        self.assertIn(b'class="net-worth-point"', response.data)
 
     def test_estimated_net_worth_runs_from_january_through_today(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

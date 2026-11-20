@@ -41,6 +41,7 @@ h2 { margin-bottom: 0; font-size: 19px; }
 .net-worth-grid { stroke: #f0eff5; stroke-width: 1; }
 .net-worth-zero { stroke: #d9d8e3; stroke-dasharray: 4 4; stroke-width: 1; }
 .net-worth-line { fill: none; stroke: #2f6fed; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.net-worth-point { fill: #fff; stroke: #2f6fed; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .net-worth-label { fill: #a0a0af; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; }
 .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .card { border: 1px solid #eeedf5; border-radius: 16px; background: #fff; box-shadow: 0 5px 20px rgb(34 33 67 / 3%); }
