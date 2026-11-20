@@ -32,6 +32,10 @@ The importer recognizes common date, description, and amount headers, including 
 
 An account label (such as `Travel card`) is stored with each transaction to keep imports from separate accounts identifiable. Re-importing the same account's rows is safe: exact duplicate rows are ignored.
 
+## Balance charts
+
+The dashboard includes charts for cash accounts, debt, and investment accounts. These amounts are currently zero-value placeholders because transaction imports do not provide current balances. The placeholder balances are defined by `ASSET_BALANCES`, `LIABILITY_BALANCES`, and `EQUITY_BALANCES` in `app.py`; they can be updated as a temporary measure until balance tracking is added.
+
 ## Categorization
 
 Transactions are categorized into Income, Savings, Home, Transportation, Daily Living, Subscriptions, Loans/Debts, or Vacation/Flights using merchant and description keywords in `CATEGORY_RULES` in `app.py`. Unrecognized spending goes into `Other`. Existing transactions are recategorized automatically when the app starts, so edits to these rules update the dashboard without needing to re-import CSVs.

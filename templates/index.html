@@ -44,7 +44,7 @@
           </div>
           <strong class="net-worth-current">{{ net_worth.latest_label }}</strong>
         </div>
-        <p class="chart-note">Running total of income minus spending since January 1. The year starts at $0.00.</p>
+        <p class="chart-note">Estimated liquid savings start at ${{ "%.2f"|format(net_worth.opening_balance) }} after moving expenses on {{ net_worth.start_label }}. Later income and spending are included, with estimated base pay of ${{ "%.2f"|format(net_worth.base_pay_monthly) }} on the 15th of months without an imported base-pay transaction.</p>
         <svg class="net-worth-chart" viewBox="0 0 {{ net_worth.width }} {{ net_worth.height }}" role="img" aria-label="Estimated net worth from {{ net_worth.start_label }} to {{ net_worth.end_label }}, currently {{ net_worth.latest_label }}.">
           <title>Estimated net worth: {{ net_worth.latest_label }}</title>
           <desc>Running income minus spending, from {{ net_worth.start_label }} through {{ net_worth.end_label }}.</desc>
@@ -149,6 +149,61 @@
               <span>Incoming transactions will appear here.</span>
             </div>
           {% endif %}
+        </article>
+      </section>
+
+      <section class="dashboard-grid balance-overview" aria-label="Assets, liabilities and equity">
+        <article class="card balance-card assets-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CASH ACCOUNTS</p>
+              <h2>Assets</h2>
+            </div>
+          </div>
+          <ul class="balance-bars" aria-label="Cash account balances">
+            {% for bar in asset_bars %}
+              <li class="balance-row" aria-label="{{ bar.name }}: ${{ "%.2f"|format(bar.amount) }}">
+                <span class="balance-name">{{ bar.name }}</span>
+                <span class="balance-track" aria-hidden="true"><span class="balance-fill" style="width: {{ bar.width }}%"></span></span>
+                <strong class="balance-amount">${{ "%.2f"|format(bar.amount) }}</strong>
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="balance-note">Account balances are placeholders until balance tracking is added.</p>
+        </article>
+
+        <article class="card balance-card liabilities-equity-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">DEBT &amp; INVESTMENTS</p>
+              <h2>Liabilities &amp; equity</h2>
+            </div>
+          </div>
+          <section class="balance-group liabilities-group" aria-labelledby="liabilities-heading">
+            <h3 id="liabilities-heading">Liabilities</h3>
+            <ul class="balance-bars" aria-label="Remaining debt balances">
+              {% for bar in liability_bars %}
+                <li class="balance-row" aria-label="{{ bar.name }}: ${{ "%.2f"|format(bar.amount) }}">
+                  <span class="balance-name">{{ bar.name }}</span>
+                  <span class="balance-track" aria-hidden="true"><span class="balance-fill" style="width: {{ bar.width }}%"></span></span>
+                  <strong class="balance-amount">${{ "%.2f"|format(bar.amount) }}</strong>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+          <section class="balance-group equity-group" aria-labelledby="equity-heading">
+            <h3 id="equity-heading">Equity</h3>
+            <ul class="balance-bars" aria-label="Investment account balances">
+              {% for bar in equity_bars %}
+                <li class="balance-row" aria-label="{{ bar.name }}: ${{ "%.2f"|format(bar.amount) }}">
+                  <span class="balance-name">{{ bar.name }}</span>
+                  <span class="balance-track" aria-hidden="true"><span class="balance-fill" style="width: {{ bar.width }}%"></span></span>
+                  <strong class="balance-amount">${{ "%.2f"|format(bar.amount) }}</strong>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+          <p class="balance-note">Debt and investment balances are placeholders until balance tracking is added.</p>
         </article>
       </section>
 

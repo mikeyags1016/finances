@@ -18,13 +18,32 @@ DATABASE = Path(os.environ.get("FINANCES_DB", BASE_DIR / "data" / "expenses.sqli
 IMPORT_INBOX = BASE_DIR / "data" / "imports" / "inbox"
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_ROWS = 10_000
+BASE_PAY_MONTHLY = 3472.89
+NET_WORTH_START_DATE = date(2026, 8, 3)
+NET_WORTH_OPENING_BALANCE = 4666.00
+ASSET_BALANCES = (
+    ("Chase Savings", 0.0),
+    ("HYSA", 0.0),
+    ("Checking", 0.0),
+)
+LIABILITY_BALANCES = (
+    ("Student debt", 0.0),
+    ("Car debt", 0.0),
+)
+EQUITY_BALANCES = (
+    ("Roth IRA", 0.0),
+    ("HSA", 0.0),
+    ("Robinhood", 0.0),
+    ("401K", 0.0),
+)
 ALLOWED_SOURCES = {"Chase", "Discover", "Bank of America"}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "local-development-only-change-me")
 
 CATEGORY_RULES = [
-    ("Savings", ("transfer to sav", "transfer to savings", "savings", "brokerage", "investment")),
+    ("Rent/Utilities/Bills", ("greystar", "driveway finance")),
+    ("Savings", ("transfer to sav", "transfer to savings", "savings", "brokerage", "investment", "fid bkg")),
     ("Home", ("rent", "mortgage", "property management", "electric", "utility", "water bill", "internet", "comcast", "verizon", "at&t")),
     ("Transportation", ("gas", "fuel", "uber", "lyft", "transit", "parking", "shell", "chevron", "garage", "toll")),
     ("Daily Living", ("grocery", "supermarket", "whole foods", "trader joe", "kroger", "aldi", "safeway", "restaurant", "cafe", "coffee", "doordash", "ubereats", "grubhub", "starbucks", "chipotle", "dining", "food")),
@@ -34,6 +53,10 @@ CATEGORY_RULES = [
 ]
 CATEGORY_COLORS = {
     "Income": "#20a879",
+    "Base Pay": "#16845d",
+    "Zelle Payments": "#39a96b",
+    "Bonuses/Stipends": "#7bc99c",
+    "Rent/Utilities/Bills": "#e38b5b",
     "Savings": "#3988d6",
     "Home": "#6d5ce8",
     "Transportation": "#dfbf3b",
@@ -111,9 +134,9 @@ def initialize_db():
                     (fingerprint, row["id"]),
                 )
         for row in connection.execute(
-            "SELECT id, description, flow_type FROM transactions"
+            "SELECT id, description, amount, flow_type FROM transactions"
         ):
-            bucket = categorize(row["description"], row["flow_type"])
+            bucket = categorize(row["description"], row["flow_type"], row["amount"])
             connection.execute(
                 "UPDATE transactions SET bucket = ? WHERE id = ?",
                 (bucket, row["id"]),
@@ -151,10 +174,24 @@ def parse_amount(value):
     return -amount if is_parenthesized else amount
 
 
-def categorize(description, flow_type="spending"):
-    if flow_type == "income":
-        return "Income"
+def categorize(description, flow_type="spending", amount=None):
     normalized = (description or "").lower()
+    if flow_type == "income":
+        if "zelle" in normalized:
+            return "Zelle Payments"
+        if any(keyword in normalized for keyword in ("bonus", "stipend")):
+            return "Bonuses/Stipends"
+        if "base pay" in normalized:
+            return "Base Pay"
+        if (
+            "payroll" in normalized
+            and amount is not None
+            and round(amount, 2) == BASE_PAY_MONTHLY
+        ):
+            return "Base Pay"
+        if "payroll" in normalized and "ibm" in normalized:
+            return "Bonuses/Stipends"
+        return "Income"
     for bucket, keywords in CATEGORY_RULES:
         if any(keyword in normalized for keyword in keywords):
             return bucket
@@ -225,7 +262,7 @@ def expense_rows(file_bytes):
                 "date": parse_date(row.get(date_header)),
                 "description": description,
                 "amount": amount,
-                "bucket": categorize(description, flow_type),
+                "bucket": categorize(description, flow_type, amount),
                 "flow_type": flow_type,
             }
         )
@@ -237,6 +274,18 @@ def format_money(value):
     return f"{sign}${abs(value):,.2f}"
 
 
+def make_balance_bars(balances):
+    maximum = max((amount for _, amount in balances), default=0.0)
+    return [
+        {
+            "name": name,
+            "amount": amount,
+            "width": amount / maximum * 100 if maximum > 0 else 0,
+        }
+        for name, amount in balances
+    ]
+
+
 def format_axis_money(value):
     rounded = round(value)
     sign = "-" if rounded < 0 else ""
@@ -245,22 +294,42 @@ def format_axis_money(value):
 
 def estimated_net_worth_chart(connection, today=None):
     today = today or date.today()
-    start = date(today.year, 1, 1)
+    start = NET_WORTH_START_DATE
+    if today < start:
+        raise ValueError("Chart date cannot be earlier than the net worth start date.")
     rows = connection.execute(
         """
         SELECT transaction_date,
-               SUM(CASE WHEN flow_type = 'income' THEN amount ELSE -amount END) AS net
+               SUM(CASE WHEN flow_type = 'income' THEN amount ELSE -amount END) AS net,
+               SUM(CASE WHEN flow_type = 'income' AND bucket = 'Base Pay' THEN 1 ELSE 0 END) AS base_pay_count
         FROM transactions
-        WHERE transaction_date >= ? AND transaction_date <= ?
+        WHERE transaction_date > ? AND transaction_date <= ?
         GROUP BY transaction_date
         ORDER BY transaction_date
         """,
         (start.isoformat(), today.isoformat()),
     ).fetchall()
     by_date = {row["transaction_date"]: row["net"] for row in rows}
+    base_pay_months = {
+        row["transaction_date"][:7]
+        for row in rows
+        if row["base_pay_count"]
+    }
+
+    month = start.replace(day=1)
+    while month <= today:
+        projected_pay_date = month.replace(day=15)
+        if (
+            projected_pay_date <= today
+            and month.strftime("%Y-%m") not in base_pay_months
+        ):
+            key = projected_pay_date.isoformat()
+            by_date[key] = by_date.get(key, 0.0) + BASE_PAY_MONTHLY
+        next_month = month.replace(day=28) + timedelta(days=4)
+        month = next_month.replace(day=1)
 
     points = []
-    cumulative = 0.0
+    cumulative = NET_WORTH_OPENING_BALANCE
     current = start
     while current <= today:
         cumulative += by_date.get(current.isoformat(), 0.0)
@@ -302,14 +371,19 @@ def estimated_net_worth_chart(connection, today=None):
     x_ticks = []
     previous_x = None
     for index, point in enumerate(points):
+        is_start = index == 0
         is_month_start = point["date"].day == 1
         is_last_day = index == last_index
-        if not is_month_start and not is_last_day:
+        if not is_start and not is_month_start and not is_last_day:
             continue
         x = x_at(index)
         if previous_x is not None and x - previous_x < plot_width * 0.08:
             continue
-        label = point["date"].strftime("%b")
+        label = (
+            point["date"].strftime("%b %d").replace(" 0", " ")
+            if is_start
+            else point["date"].strftime("%b")
+        )
         if is_last_day and not is_month_start:
             label = f"{label} {point['date'].day}"
         x_ticks.append({"x": f"{x:.2f}", "label": label})
@@ -334,6 +408,8 @@ def estimated_net_worth_chart(connection, today=None):
         "plot_right": width - right,
         "label_y": height - 10,
         "latest": points[-1]["value"],
+        "opening_balance": NET_WORTH_OPENING_BALANCE,
+        "base_pay_monthly": BASE_PAY_MONTHLY,
         "latest_label": format_money(points[-1]["value"]),
         "start_label": start.strftime("%b %d, %Y").replace(" 0", " "),
         "end_label": today.strftime("%b %d, %Y").replace(" 0", " "),
@@ -442,6 +518,9 @@ def dashboard():
         "index.html",
         spending_segments=spending_segments,
         income_segments=income_segments,
+        asset_bars=make_balance_bars(ASSET_BALANCES),
+        liability_bars=make_balance_bars(LIABILITY_BALANCES),
+        equity_bars=make_balance_bars(EQUITY_BALANCES),
         transactions=transactions,
         total_spending=total_spending,
         total_income=total_income,

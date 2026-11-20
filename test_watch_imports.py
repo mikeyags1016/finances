@@ -61,6 +61,29 @@ class ProcessCsvTests(unittest.TestCase):
                             "bucket": "Income",
                             "flow_type": "income",
                         },
+                        {
+                            "date": "2026-10-27",
+                            "description": "IBM Payroll",
+                            "amount": 3472.89,
+                            "bucket": app.categorize("IBM Payroll", "income", 3472.89),
+                            "flow_type": "income",
+                        },
+                        {
+                            "date": "2026-10-26",
+                            "description": "Zelle payment from friend",
+                            "amount": 25.0,
+                            "bucket": app.categorize(
+                                "Zelle payment from friend", "income", 25.0
+                            ),
+                            "flow_type": "income",
+                        },
+                        {
+                            "date": "2026-10-25",
+                            "description": "IBM Payroll",
+                            "amount": 5628.0,
+                            "bucket": app.categorize("IBM Payroll", "income", 5628.0),
+                            "flow_type": "income",
+                        },
                     ],
                 )
                 response = app.app.test_client().get("/")
@@ -77,13 +100,19 @@ class ProcessCsvTests(unittest.TestCase):
         self.assertIn(b'data-flow-type="spending"', response.data)
         self.assertIn(b'data-flow-type="income"', response.data)
         self.assertIn(b'data-bucket="Daily Living"', response.data)
+        self.assertIn(b'data-bucket="Base Pay"', response.data)
+        self.assertIn(b'data-bucket="Zelle Payments"', response.data)
+        self.assertIn(b'data-bucket="Bonuses/Stipends"', response.data)
+        self.assertIn(b'fill="#16845d"', response.data)
+        self.assertIn(b'fill="#39a96b"', response.data)
+        self.assertIn(b'fill="#7bc99c"', response.data)
         self.assertIn(b"Show all transactions", response.data)
         self.assertIn(b"/static/app.js", response.data)
         self.assertLess(response.data.index(b"Estimated net worth"), response.data.index(b"Spending by bucket"))
         self.assertIn(b'class="net-worth-line"', response.data)
         self.assertIn(b'class="net-worth-point"', response.data)
 
-    def test_estimated_net_worth_runs_from_january_through_today(self):
+    def test_estimated_net_worth_starts_with_post_move_savings_balance(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             with patch.object(app, "DATABASE", Path(temporary_directory) / "expenses.sqlite3"):
                 app.initialize_db()
@@ -99,14 +128,21 @@ class ProcessCsvTests(unittest.TestCase):
                             "flow_type": "income",
                         },
                         {
-                            "date": "2026-01-15",
+                            "date": "2026-08-03",
+                            "description": "Moving expenses already reflected in opening balance",
+                            "amount": 2000.0,
+                            "bucket": "Other",
+                            "flow_type": "spending",
+                        },
+                        {
+                            "date": "2026-08-04",
                             "description": "Coffee shop",
                             "amount": 40.0,
                             "bucket": "Daily Living",
                             "flow_type": "spending",
                         },
                         {
-                            "date": "2026-03-02",
+                            "date": "2026-09-02",
                             "description": "Payroll",
                             "amount": 100.0,
                             "bucket": "Income",
@@ -115,17 +151,65 @@ class ProcessCsvTests(unittest.TestCase):
                     ],
                 )
                 with app.get_db() as connection:
-                    chart = app.estimated_net_worth_chart(connection, today=date(2026, 3, 4))
+                    chart = app.estimated_net_worth_chart(connection, today=date(2026, 9, 16))
 
-        self.assertEqual(chart["latest"], 60.0)
-        self.assertEqual(chart["latest_label"], "$60.00")
-        self.assertEqual(chart["start_label"], "Jan 1, 2026")
-        self.assertEqual(chart["end_label"], "Mar 4, 2026")
-        self.assertIn("Jan", [tick["label"] for tick in chart["x_ticks"]])
+        self.assertEqual(chart["opening_balance"], 4666.00)
+        self.assertAlmostEqual(chart["latest"], 11671.78, places=2)
+        self.assertEqual(chart["latest_label"], "$11,671.78")
+        self.assertEqual(chart["start_label"], "Aug 3, 2026")
+        self.assertEqual(chart["end_label"], "Sep 16, 2026")
+        self.assertIn("Aug 3", [tick["label"] for tick in chart["x_ticks"]])
         self.assertTrue(chart["line"].startswith("72.00,"))
+
+    def test_projected_base_pay_is_not_added_when_month_has_imported_base_pay(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.object(app, "DATABASE", Path(temporary_directory) / "expenses.sqlite3"):
+                app.initialize_db()
+                app.save_transactions(
+                    "Chase",
+                    "Checking",
+                    [
+                        {
+                            "date": "2026-03-15",
+                            "description": "IBM Payroll",
+                            "amount": app.BASE_PAY_MONTHLY,
+                            "bucket": app.categorize(
+                                "IBM Payroll", "income", app.BASE_PAY_MONTHLY
+                            ),
+                            "flow_type": "income",
+                        },
+                    ],
+                )
+                with app.get_db() as connection:
+                    chart = app.estimated_net_worth_chart(
+                        connection, today=date(2026, 9, 16)
+                    )
+
+        self.assertEqual(
+            chart["latest"],
+            app.NET_WORTH_OPENING_BALANCE + app.BASE_PAY_MONTHLY * 2,
+        )
+
+    def test_categorizes_income_types_and_base_pay_amount(self):
+        self.assertEqual(
+            app.categorize("IBM Payroll", "income", 3472.89), "Base Pay"
+        )
+        self.assertEqual(
+            app.categorize("IBM Payroll", "income", 5628.00), "Bonuses/Stipends"
+        )
+        self.assertEqual(
+            app.categorize("Zelle payment from friend", "income", 100.00),
+            "Zelle Payments",
+        )
+        self.assertEqual(
+            app.categorize("Annual bonus", "income", 500.00), "Bonuses/Stipends"
+        )
+        self.assertEqual(app.categorize("Payroll deposit", "income", 100.00), "Income")
 
     def test_categorizes_transactions_into_requested_buckets(self):
         examples = {
+            "GREYSTAR services rent": "Rent/Utilities/Bills",
+            "DRIVEWAY Finance payment": "Rent/Utilities/Bills",
             "Chase rent payment": "Home",
             "Electric utility bill": "Home",
             "Shell gas station": "Transportation",
@@ -135,6 +219,7 @@ class ProcessCsvTests(unittest.TestCase):
             "Payment to Chase card": "Loans/Debts",
             "United Airlines flight": "Vacation/Flights",
             "Online Transfer to SAV": "Savings",
+            "Fid Bkg transfer": "Savings",
         }
 
         for description, expected_bucket in examples.items():
@@ -216,6 +301,40 @@ class ProcessCsvTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b'form action="/import"', response.data)
         self.assertIn(b"data/imports/inbox", response.data)
+
+    def test_dashboard_shows_balance_charts_with_placeholders(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.object(app, "DATABASE", Path(temporary_directory) / "expenses.sqlite3"):
+                app.initialize_db()
+                response = app.app.test_client().get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b">Assets</h2>", response.data)
+        self.assertIn(b"Liabilities &amp; equity", response.data)
+        self.assertIn(b"Student debt", response.data)
+        self.assertIn(b"Car debt", response.data)
+        self.assertIn(b"HSA", response.data)
+        self.assertIn(b"Chase Savings", response.data)
+        self.assertIn(b"HYSA", response.data)
+        self.assertIn(b"Checking", response.data)
+        self.assertIn(b"Roth IRA", response.data)
+        self.assertIn(b"Robinhood", response.data)
+        self.assertIn(b"401K", response.data)
+        self.assertIn(b"Account balances are placeholders", response.data)
+        self.assertIn(b'class="balance-fill" style="width: 0%', response.data)
+        self.assertLess(
+            response.data.index(b"Income by bucket"),
+            response.data.index(b">Assets</h2>"),
+        )
+        self.assertLess(
+            response.data.index(b">Assets</h2>"),
+            response.data.index(b">Transactions</h2>"),
+        )
+
+    def test_balance_bars_scale_to_largest_account(self):
+        bars = app.make_balance_bars((("Savings", 100.0), ("Checking", 50.0)))
+
+        self.assertEqual([bar["width"] for bar in bars], [100.0, 50.0])
 
     def test_imports_rows_and_skips_duplicate_rows(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

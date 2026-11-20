@@ -44,8 +44,23 @@ h2 { margin-bottom: 0; font-size: 19px; }
 .net-worth-point { fill: #fff; stroke: #2f6fed; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .net-worth-label { fill: #a0a0af; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; }
 .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.balance-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .card { border: 1px solid #eeedf5; border-radius: 16px; background: #fff; box-shadow: 0 5px 20px rgb(34 33 67 / 3%); }
 .chart-card, .transactions-card { padding: 25px; }
+.balance-card { padding: 25px; }
+.balance-card .section-heading { margin-bottom: 20px; }
+.balance-bars { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.balance-row { display: grid; grid-template-columns: minmax(92px, 1fr) minmax(50px, 1.3fr) minmax(78px, auto); align-items: center; gap: 12px; }
+.balance-name { overflow: hidden; color: #68697d; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.balance-track { height: 9px; overflow: hidden; border-radius: 999px; background: #f0eff5; }
+.balance-fill { display: block; height: 100%; border-radius: inherit; background: var(--balance-color); }
+.balance-amount { color: #34354a; font-size: 13px; text-align: right; white-space: nowrap; }
+.assets-card { --balance-color: #3988d6; }
+.liabilities-group { --balance-color: #df627a; }
+.equity-group { --balance-color: #6d5ce8; }
+.balance-group + .balance-group { margin-top: 21px; padding-top: 18px; border-top: 1px solid #f0eff5; }
+.balance-group h3 { margin: 0 0 14px; color: #52536a; font-size: 13px; }
+.balance-note { margin: 20px 0 0; color: #9999ab; font-size: 11px; line-height: 1.5; }
 .section-heading { justify-content: space-between; margin-bottom: 25px; }
 .chart-layout { min-height: 225px; justify-content: space-around; gap: 30px; }
 .pie-chart { width: 205px; height: 205px; flex: 0 0 205px; overflow: visible; }
@@ -110,7 +125,7 @@ code { color: #74718b; }
   .topbar, .net-worth-card .section-heading { align-items: flex-start; flex-direction: column; }
   .net-worth-card .section-heading { gap: 8px; }
   .totals, .total-card { width: 100%; }
-  .chart-card, .transactions-card, .net-worth-card { padding: 19px; }
+  .chart-card, .transactions-card, .net-worth-card, .balance-card { padding: 19px; }
   .chart-layout { flex-direction: column; }
   .legend { width: 100%; }
 }
